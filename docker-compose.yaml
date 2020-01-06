@@ -1,0 +1,57 @@
+version: '2.3'
+
+services:
+  openvpn:
+    image: rtsundland/openvpn
+    build: ./build/openvpn
+    hostname: openvpn
+    container_name: openvpn
+    restart: unless-stopped
+
+    cap_add:
+      - net_admin
+
+    networks:
+      openvpn_socks5:
+        ipv4_address: 172.19.32.2
+
+    env_file: ./settings.env
+
+    tmpfs:
+      - /run
+      - /tmp
+
+    volumes:
+      - /dev/net/tun:/dev/net/tun
+      - /etc/localtime:/etc/localtime
+      - ./config/${VPN_CONFIG}:/config/service.ovpn
+      - ./config/${VPN_CREDENTIALS}:/config/credentials.txt
+
+    ports:
+      - ${PROXY_PORT}:${PROXY_PORT}
+
+  dante-server:
+    image: rtsundland/dante-server
+    build: ./build/dante-server
+    container_name: dante-server
+    restart: unless-stopped
+
+    tmpfs:
+      - /run
+      - /tmp
+    depends_on:
+      - openvpn
+    network_mode: service:openvpn
+    env_file: ./settings.env
+    volumes:
+      - ./config/${_PROXY_CONFIG}:/etc/danted.conf
+      - /etc/localtime:/etc/localtime
+
+networks:
+  openvpn_socks5:
+    name: openvpn_socks5
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.19.32.0/24

@@ -1,0 +1,95 @@
+#!/bin/bash
+#
+# Parses DHCP options from openvpn to update resolv.conf
+# To use set as 'up' and 'down' script in your openvpn *.conf:
+# up /etc/openvpn/update-resolv-conf
+# down /etc/openvpn/update-resolv-conf
+#
+# Used snippets of resolvconf script by Thomas Hood <jdthood@yahoo.co.uk>
+# and Chris Hanson
+# Licensed under the GNU GPL.  See /usr/share/common-licenses/GPL.
+# 07/2013 colin@daedrum.net Fixed intet name
+# 05/2006 chlauber@bnc.ch
+#
+# Example envs set from openvpn:
+# foreign_option_1='dhcp-option DNS 193.43.27.132'
+# foreign_option_2='dhcp-option DNS 193.43.27.133'
+# foreign_option_3='dhcp-option DOMAIN be.bnc.ch'
+# foreign_option_4='dhcp-option DOMAIN-SEARCH bnc.local'
+
+case $script_type in
+
+up)
+	for optionname in ${!foreign_option_*}
+	do	option="${!optionname}"
+		echo $option
+		part1=$(echo "$option" | cut -d " " -f 1)
+		if [ "$part1" == "dhcp-option" ]
+		then	part2=$(echo "$option" | cut -d " " -f 2)
+			part3=$(echo "$option" | cut -d " " -f 3)
+			case "${part2}" in
+				DNS) IF_DNS_NAMESERVERS="$IF_DNS_NAMESERVERS $part3";;
+				DOMAIN | DOMAIN_SEARCH) IF_DNS_SEARCH="$IF_DNS_SEARCH $part3";;
+			esac
+		fi
+	done
+
+	shopt -s extglob nocasematch
+
+	if [[ ${PREVENT_DNS_LEAKS} = +(true|yes|1) ]]
+	then	if [ ! -z "${IF_DNS_NAMESERVERS}" ]
+		then
+			#
+			# retain existing resolv.conf and create new one based on IF_DNS_NAMESERVERS and IF_DNS_SEARCH
+			#
+			cat /etc/resolv.conf > /etc/resolv.conf.retained 	# our backup (used in down, too)
+
+			echo "# resolv.conf auto created by $0 as part of OpenVPN up/down script" > /etc/resolv.conf
+			test ! -z "${IF_DNS_SEARCH}" && echo "search ${IF_DNS_SEARCH}" >> /etc/resolv.conf
+
+			#
+			# parse IF_DNS_NAMESERVERS and
+			#	1) create static route for all nameservers provided by OpenVPN to $route_vpn_gateway
+			#	2) update our new /etc/resolv.conf with those new nameservers
+			#
+			echo ${IF_DNS_NAMESERVERS} | while read nameserver
+			do	echo -n "Adding static route for nameserver ${nameserver} to ${route_vpn_gateway}.. "
+				route add -host ${nameserver} gw ${route_vpn_gateway}
+				if [ $? -eq 0 ]
+				then	echo "ok"
+				else	echo "failed"
+				fi
+				
+				# update resolv.conf
+				echo "nameserver ${nameserver}" >> /etc/resolv.conf
+			done
+		else	echo "No nameservers provided by VPN server and trying to prevent DNS leaks."
+			exit 2
+		fi
+	fi
+
+	#
+	# create static routes for any local subnets using $route_net_gateway
+	#
+	if [ ! -z "${LOCAL_SUBNETS}" ]
+	then	echo ${LOCAL_SUBNETS} | sed 's/"//g' | while read subnet
+		do	echo -n "Adding static route for local subnet ${subnet} to ${route_net_gateway}.."
+			route add -net ${subnet} gw ${route_net_gateway}
+			if [ $? -eq 0 ]
+			then	echo "ok"
+			else	echo "failed"
+			fi
+		done
+	fi
+	;;
+
+down)
+	cat /etc/resolv.conf.retained > /etc/resolv.conf
+	;;
+esac
+
+# Workaround / jm@epiclabs.io 
+# force exit with no errors. Due to an apparent conflict with the Network Manager
+# $RESOLVCONF sometimes exits with error code 6 even though it has performed the
+# action correctly and OpenVPN shuts down.
+exit 0
