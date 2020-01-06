@@ -46,3 +46,10 @@ When the services are running, you can edit the files within the config/ subfold
 don't need to run run.sh again, but once you change settings in settings.env or docker-compose.yaml, you will have to
 launch again with run.sh.
 
+## Testing
+
+Curl is your best option to test, assuming you're connecting from the host running Docker and you're using port 1080:
+
+```
+curl -x socks5://localhost:1080/ github.com
+```
