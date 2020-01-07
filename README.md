@@ -1,27 +1,27 @@
-# OpenVPN + SOCKS5 Gateway Service
+# OpenVPN + SOCKS Gateway Service
 
 Simply, this docker-compose configuration creates two services.  The first service creates an OpenVPN tunnel using the
-OpenVPN-based service/provider of your choice.  The second service is a SOCKS5 proxy (using dante) that forwards traffic out
+OpenVPN-based service/provider of your choice.  The second service is a SOCKS4/5 proxy (using dante) that forwards traffic out
 through the VPN created by the openvpn service.
 
-ANY client that supports SOCKS5 can use this proxy to forward connections over the VPN, whether it's another Docker container
+ANY client that supports SOCKS4/5 can use this proxy to forward connections over the VPN, whether it's another Docker container
 or a host somewhere else on your network.  For other containers, you may choose to assign them to the network created by this
-package, and subsequently specify the SOCKS5 proxy as 172.19.32.2.  Or, if you choose to run your container with network_mode:
+package, and subsequently specify the SOCKS4/5 proxy as 172.19.32.2.  Or, if you choose to run your container with network_mode:
 host or connect from another system on your network, you would use the IP address of the system running Docker.
 
 You need to edit settings.env to configure the service; it allows configuration of the following:
 
 * Timezone configuration
 * OpenVPN *.ovpn and credentials path
-* SOCKS5 port customization (default: 1080/tcp)
+* SOCKS4/5 port customization (default: 1080/tcp)
 * Specify any local subnets that require access to the VPN
 * Configure DNS leak protection (on by default).
-* Number of SOCKS5 child processes, if you need more connection capabilities
+* Number of SOCKS4/5 child processes, if you need more connection capabilities
 
 ## Required Stuff
 
 * An OpenVPN-based service provider.  I use ProtonVPN
-* A SOCKS5-capable client (curl can be used for testing)
+* A SOCKS4/5-capable client (curl can be used for testing)
 
 ## DNS Leak Protection
 
