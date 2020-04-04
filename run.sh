@@ -34,6 +34,25 @@ print_danted_access_config() {
 	SUBNET=$1; shift
 	cat <<EOF | sed "s!%%AUTHORIZED_SUBNET%%!${SUBNET}!g"
 #
+# access rules for our docker subnet
+client pass {
+        from: 172.19.32.0/24 to: 0.0.0.0/0
+        log: error # connect disconnect
+}
+
+socks pass {
+        from: 172.19.32.0/24 to: 0.0.0.0/0
+        command: bind connect udpassociate
+        log: error # connect disconnect iooperation
+}
+
+socks pass {
+        from: 0.0.0.0/0 to: 172.19.32.0/24
+        command: bindreply udpreply
+        log: error # connect disconnect iooperation
+}
+
+#
 # access rules for subnet %%AUTHORIZED_SUBNET%%
 
 client pass {
